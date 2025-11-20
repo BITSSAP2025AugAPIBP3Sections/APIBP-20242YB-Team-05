@@ -307,17 +307,22 @@ components:
 
     Seller:
       type: object
+      required:
+        - address
+        - name
       properties:
         address:
           type: string
-        did:
-          type: string
+          example: "0x1234abcd5678ef90"
         name:
           type: string
+          example: "Alice"
         reputation:
           type: integer
+          example: 85
         verified:
           type: boolean
+          example: true
 
     IPFSMetadata:
       type: object
