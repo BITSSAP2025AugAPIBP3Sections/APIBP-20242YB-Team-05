@@ -115,12 +115,10 @@ const IdentitySchema = new Schema<IIdentity>({
   collection: 'identities'
 });
 
-// Indexes
-IdentitySchema.index({ did: 1 });
-IdentitySchema.index({ address: 1 });
-IdentitySchema.index({ verified: 1 });
+// Additional indexes (did, address, verified already defined in schema)
 IdentitySchema.index({ 'verification.status': 1 });
 IdentitySchema.index({ name: 'text', bio: 'text' });
+IdentitySchema.index({ createdAt: -1 });
 
 // Static methods
 IdentitySchema.statics.findByDID = function(did: string) {

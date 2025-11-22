@@ -19,6 +19,10 @@ export const config = {
   BLOCKCHAIN_RPC_URL: process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545',
   REPUTATION_CONTRACT_ADDRESS: process.env.REPUTATION_CONTRACT_ADDRESS,
   
+  // Admin and Security
+  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || 'your_webhook_secret_here',
+  ADMIN_API_KEY: process.env.ADMIN_API_KEY || 'your_admin_api_key',
+  
   // API Configuration
   CORS_ORIGIN: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10),

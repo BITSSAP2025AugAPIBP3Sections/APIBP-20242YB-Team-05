@@ -12,6 +12,12 @@ import database from './config/database';
 // Route imports
 import healthRoutes from './routes/health';
 import identityRoutes from './routes/identity';
+import reputationRoutes from './routes/reputation';
+import blockchainRoutes from './routes/blockchain';
+import adminRoutes from './routes/admin';
+
+// Service imports
+import blockchainService from './services/blockchainService';
 
 class Server {
   public app: express.Application;
@@ -76,6 +82,9 @@ class Server {
 
     // API routes
     this.app.use(`${apiPrefix}/identities`, identityRoutes);
+    this.app.use(`${apiPrefix}/reputation`, reputationRoutes);
+    this.app.use(`${apiPrefix}/blockchain`, blockchainRoutes);
+    this.app.use(`${apiPrefix}/admin`, adminRoutes);
 
     // Root endpoint
     this.app.get('/', (req, res) => {
@@ -87,6 +96,9 @@ class Server {
         endpoints: {
           health: '/health',
           identities: `${apiPrefix}/identities`,
+          reputation: `${apiPrefix}/reputation`,
+          blockchain: `${apiPrefix}/blockchain`,
+          admin: `${apiPrefix}/admin`,
           documentation: `${apiPrefix}/docs`
         }
       });
@@ -118,6 +130,19 @@ class Server {
         logger.info(`📊 Database: Connected to ${config.MONGODB_DB_NAME}`);
       } catch (dbError) {
         logger.warn('⚠️ Database connection failed - running in demo mode');
+      }
+
+      // Initialize blockchain service
+      try {
+        await blockchainService.initialize();
+        const isAvailable = await blockchainService.isContractAvailable();
+        if (isAvailable) {
+          logger.info('⛓️ Blockchain: Connected and ready');
+        } else {
+          logger.warn('⚠️ Blockchain: Service initialized but contract not available');
+        }
+      } catch (blockchainError) {
+        logger.warn('⚠️ Blockchain initialization failed - running without blockchain features');
       }
 
       // Start server
