@@ -49,11 +49,12 @@ async function main() {
   console.log("🌱 Populating blockchain with sample data...\n");
 
   // Load deployment info
-  if (!fs.existsSync('./deployments.json')) {
+  const deploymentPath = './deployment.json';
+  if (!fs.existsSync(deploymentPath)) {
     throw new Error("❌ Deployment file not found. Please run deploy script first.");
   }
 
-  const deployments = JSON.parse(fs.readFileSync('./deployments.json', 'utf8'));
+  const deployments = JSON.parse(fs.readFileSync(deploymentPath, 'utf8'));
   console.log("📋 Using deployed contracts from:", deployments.deployedAt);
 
   // Get signers (multiple sellers)
@@ -61,50 +62,10 @@ async function main() {
   console.log("👥 Available accounts:", signers.length);
 
   // Get contract instances
-  const ProductRegistry = await ethers.getContractFactory("ProductRegistry");
-  const productRegistry = ProductRegistry.attach(deployments.contracts.ProductRegistry.address);
+  const ListingRegistry = await ethers.getContractFactory("ListingRegistry");
+  const listingRegistry = ListingRegistry.attach(deployments.contracts.ListingRegistry);
 
-  const Reputation = await ethers.getContractFactory("Reputation");
-  const reputation = Reputation.attach(deployments.contracts.Reputation.address);
-
-  console.log("📦 ProductRegistry at:", await productRegistry.getAddress());
-  console.log("⭐ Reputation at:", await reputation.getAddress());
-
-  // Register sellers first
-  console.log("\n👤 Registering sellers...");
-  const sellerDIDs = [
-    "did:ethr:techstore",
-    "did:ethr:fashionhub", 
-    "did:ethr:homecenter",
-    "did:ethr:sportsgear",
-    "did:ethr:bookworld",
-    "did:ethr:gadgetplace",
-    "did:ethr:styleshop",
-    "did:ethr:fitnesstore"
-  ];
-
-  // Register 8 different sellers
-  for (let i = 0; i < 8; i++) {
-    try {
-      const tx = await reputation.connect(signers[i]).registerSeller(sellerDIDs[i]);
-      await tx.wait();
-      console.log(`✅ Registered seller ${i + 1}: ${signers[i].address}`);
-    } catch (error) {
-      console.log(`⚠️  Seller ${i + 1} may already be registered`);
-    }
-  }
-
-  // Verify some sellers (as contract owner)
-  console.log("\n🔍 Verifying some sellers...");
-  for (let i = 0; i < 4; i++) {
-    try {
-      const tx = await reputation.connect(signers[0]).verifySeller(signers[i].address);
-      await tx.wait();
-      console.log(`✅ Verified seller: ${signers[i].address}`);
-    } catch (error) {
-      console.log(`⚠️  Could not verify seller ${i}: ${error.message}`);
-    }
-  }
+  console.log("📦 ListingRegistry at:", await listingRegistry.getAddress());
 
   // Create products with different sellers
   console.log("\n🛍️  Creating product listings...");
@@ -116,6 +77,7 @@ async function main() {
     const seller = signers[sellerIndex];
     const ipfsHash = sampleIPFSHashes[i % sampleIPFSHashes.length];
     const priceWei = ethers.parseEther(product.price);
+    const listingId = `lst_${Date.now()}_${i}`;
 
     try {
       // Add random delay to simulate realistic timing
@@ -123,80 +85,35 @@ async function main() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      const tx = await productRegistry.connect(seller).listProduct(
-        ipfsHash,
+      const tx = await listingRegistry.connect(seller).createListing(
+        listingId,
+        product.name,
         priceWei,
-        product.category
+        "ETH",
+        100,
+        ipfsHash
       );
       await tx.wait();
       productCount++;
       
-      console.log(`📦 Listed: ${product.name} by seller ${sellerIndex + 1} - ${product.price} ETH`);
+      console.log(`📦 Listed: ${product.name} as ${listingId} by seller ${sellerIndex + 1} - ${product.price} ETH`);
     } catch (error) {
       console.error(`❌ Failed to list ${product.name}:`, error.message);
     }
   }
 
-  // Record some sales for reputation
-  console.log("\n💰 Recording sample sales...");
-  for (let i = 0; i < 15; i++) {
-    const sellerIndex = i % 8;
-    const orderId = 1000 + i;
-    
-    try {
-      const tx = await reputation.recordSale(signers[sellerIndex].address, orderId);
-      await tx.wait();
-      console.log(`✅ Recorded sale for seller ${sellerIndex + 1}`);
-    } catch (error) {
-      console.error(`❌ Failed to record sale:`, error.message);
-    }
-  }
-
-  // Add some reviews
-  console.log("\n⭐ Adding sample reviews...");
-  const reviewComments = [
-    "Excellent product, fast shipping!",
-    "Good quality, as described",
-    "Amazing seller, highly recommended",
-    "Product arrived quickly, perfect condition",
-    "Great communication, will buy again"
-  ];
-
-  for (let i = 0; i < 12; i++) {
-    const reviewerIndex = (i + 3) % 8;
-    const sellerIndex = i % 6; // Only review first 6 sellers
-    const rating = Math.floor(Math.random() * 3) + 3; // 3-5 stars
-    const orderId = 1000 + i;
-    const comment = reviewComments[i % reviewComments.length];
-
-    try {
-      const tx = await reputation.connect(signers[reviewerIndex]).submitReview(
-        signers[sellerIndex].address,
-        orderId,
-        rating,
-        comment
-      );
-      await tx.wait();
-      console.log(`⭐ Added ${rating}-star review for seller ${sellerIndex + 1}`);
-    } catch (error) {
-      console.error(`❌ Failed to add review:`, error.message);
-    }
-  }
 
   // Get final stats
   console.log("\n📊 Final Statistics:");
-  const totalProducts = await productRegistry.getTotalProducts();
-  const totalReviews = await reputation.getTotalReviews();
+  const totalProducts = await listingRegistry.getListingsCount();
   
   console.log(`   📦 Total Products: ${totalProducts}`);
-  console.log(`   ⭐ Total Reviews: ${totalReviews}`);
   console.log(`   👥 Active Sellers: 8`);
 
   // Save blockchain state info
   const blockchainState = {
     populatedAt: new Date().toISOString(),
     totalProducts: totalProducts.toString(),
-    totalReviews: totalReviews.toString(),
     sellerAddresses: signers.slice(0, 8).map(s => s.address),
     contracts: deployments.contracts
   };

@@ -1,58 +1,76 @@
-const Listing = require('../models/Listing.js');
+const listingService = require('../services/listing.service');
+const blockchainService = require('../services/blockchainService');
+const ipfsService = require('../services/ipfsService');
 
-// List all listings
-exports.listListings = async (req, res) => {
-  try {
-    const listings = await Listing.find();
-    res.json({ listings });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+class ListingController {
+  async create(req, res, next) {
+    try {
+      const listing = await listingService.createListing(req.body);
+      res.status(201).json(listing);
+    } catch (error) {
+      next(error);
+    }
   }
-};
 
-// Get a single listing by ID
-exports.getListing = async (req, res) => {
-  try {
-    const listing = await Listing.findById(req.params.id);
-    if (!listing) return res.status(404).json({ error: 'Listing not found' });
-    res.json(listing);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  async get(req, res, next) {
+    try {
+      const listings = await listingService.getAllListings();
+      res.json(listings);
+    } catch (error) {
+      next(error);
+    }
   }
-};
 
-// Create a new listing
-exports.createListing = async (req, res) => {
-  try {
-    const newListing = new Listing(req.body);
-    await newListing.save();
-    res.status(201).json(newListing);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  async getById(req, res, next) {
+    try {
+      const listing = await listingService.getListingById(req.params.id);
+      if (!listing) {
+        return res.status(404).json({ message: 'Listing not found' });
+      }
+      res.json(listing);
+    } catch (error) {
+      next(error);
+    }
   }
-};
 
-// Update a listing by ID
-exports.updateListing = async (req, res) => {
-  try {
-    const updatedListing = await Listing.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updatedListing) return res.status(404).json({ error: 'Listing not found' });
-    res.json(updatedListing);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
+  async publish(req, res, next) {
+    try {
+      const { id } = req.params;
+      const listing = await listingService.getListingById(id);
 
-// Delete a listing by ID
-exports.deleteListing = async (req, res) => {
-  try {
-    const deleted = await Listing.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Listing not found' });
-    res.json({ message: 'Listing deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      if (!listing) {
+        return res.status(404).json({ message: 'Listing not found' });
+      }
+
+      // 1. Upload metadata to IPFS
+      const ipfsCID = await ipfsService.uploadMetadata({
+        name: listing.name,
+        description: listing.description,
+        images: listing.images,
+      });
+
+      // 2. Publish to blockchain
+      const tx = await blockchainService.publishListing(listing, ipfsCID);
+
+      // 3. Update local status
+      const updatedListing = await listingService.updateListing(id, {
+        status: 'published',
+        ipfsCID,
+        blockchain: {
+          network: 'localhost',
+          contractAddress: blockchainService.getContractAddress(),
+          transactionHash: tx.hash,
+        },
+      });
+
+      res.json({
+        message: 'Listing published successfully!',
+        listing: updatedListing,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-};
+}
+
+module.exports = new ListingController();

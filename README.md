@@ -6,7 +6,7 @@ A decentralized e-commerce platform built with blockchain technology, featuring 
 
 This project implements a blockchain-based e-commerce system with the following components:
 
-- **Smart Contracts**: Product Registry, Escrow, and Reputation systems
+- **Smart Contracts**: Listing Registry, Escrow, Order Manager, and Reputation systems
 - **Search & Discovery API**: Advanced product search and filtering
 - **IPFS Integration**: Decentralized metadata storage
 - **MongoDB**: Fast product indexing and search
@@ -91,7 +91,7 @@ MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/nozama-search
 
 # Blockchain Configuration  
 BLOCKCHAIN_RPC_URL=http://localhost:8545
-PRODUCT_REGISTRY_ADDRESS=<contract-address>
+LISTING_REGISTRY_ADDRESS=<contract-address>
 REPUTATION_CONTRACT_ADDRESS=<contract-address>
 
 # IPFS Configuration
@@ -106,10 +106,18 @@ NODE_ENV=development
 
 ## 📦 Smart Contracts
 
-### ProductRegistry.sol
-- Manages product listings on blockchain
-- Emits events for off-chain indexing  
-- Stores IPFS hashes for metadata
+### ListingRegistry.sol
+- Manages product listings, including price and stock levels.
+- Emits events for off-chain indexing.
+- Stores IPFS hashes for metadata.
+
+### OrderManager.sol
+- Manages the lifecycle of orders.
+- Interacts with `ListingRegistry` for stock and `Escrow` for payments.
+
+### Escrow.sol
+- Securely holds buyer's funds during a transaction.
+- Releases funds to the seller upon delivery confirmation or refunds the buyer if canceled.
 
 ### Reputation.sol
 - Tracks seller ratings and reviews
@@ -117,9 +125,7 @@ NODE_ENV=development
 - Manages seller verification status
 
 ### Contract Addresses (Local)
-After deployment, contracts will be available at:
-- ProductRegistry: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
-- Reputation: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
+After deployment, contract addresses can be found in the `deployments.json` file.
 
 ## 🗄️ Database Schema
 
@@ -240,10 +246,10 @@ cd contracts
 npx hardhat console --network localhost
 
 # In console:
-const ProductRegistry = await ethers.getContractFactory("ProductRegistry");
-const registry = await ProductRegistry.attach("CONTRACT_ADDRESS");
-const totalProducts = await registry.getTotalProducts();
-console.log("Total products:", totalProducts.toString());
+const ListingRegistry = await ethers.getContractFactory("ListingRegistry");
+const registry = await ListingRegistry.attach("YOUR_LISTING_REGISTRY_ADDRESS");
+const totalListings = await registry.getListingsCount();
+console.log("Total listings:", totalListings.toString());
 ```
 
 ### Verify MongoDB Population

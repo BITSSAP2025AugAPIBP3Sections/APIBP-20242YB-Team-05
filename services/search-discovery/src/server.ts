@@ -10,9 +10,13 @@ import database from './config/database';
 import logger, { httpLogStream } from './utils/logger';
 
 // Import routes
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
+
 import searchRoutes from './routes/search';
 import categoryRoutes from './routes/categories';
 import healthRoutes from './routes/health';
+import Product from './models/Product';
 
 class Server {
   public app: express.Application;
@@ -77,7 +81,30 @@ class Server {
     });
   }
 
+  private initializeSwagger(): void {
+    const swaggerOptions = {
+      swaggerDefinition: {
+        openapi: '3.0.0',
+        info: {
+          title: 'Nozama Search & Discovery API',
+          version: '1.0.0',
+          description: 'API for searching and discovering products and categories in the Nozama decentralized e-commerce platform.',
+        },
+        servers: [
+          {
+            url: `http://localhost:${config.PORT}/api/${config.API_VERSION}`,
+          },
+        ],
+      },
+      apis: ['./src/routes/*.ts'],
+    };
+
+    const swaggerSpec = swaggerJsdoc(swaggerOptions);
+    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  }
+
   private initializeRoutes(): void {
+    this.initializeSwagger();
     // API version prefix
     const apiPrefix = `/api/${config.API_VERSION}`;
 
@@ -186,7 +213,14 @@ class Server {
       }
 
       // Start server regardless of database connection
-      this.app.listen(config.PORT, () => {
+      this.app.listen(config.PORT, async () => {
+        try {
+          // Ensure indexes are created on startup
+          await Product.createIndexes();
+          logger.info('🔍 MongoDB text indexes synchronized successfully');
+        } catch (indexError) {
+          logger.error('⚠️ Error synchronizing MongoDB indexes:', indexError);
+        }
         logger.info(`🚀 Search & Discovery API started successfully`);
         logger.info(`📡 Server running on port ${config.PORT}`);
         logger.info(`🌍 Environment: ${config.NODE_ENV}`);
